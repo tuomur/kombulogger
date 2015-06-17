@@ -46,8 +46,7 @@ class KombuLogServer(object):
             try:
                 message = self.queue.get(block=True, timeout=1)
                 payload = message.payload
-                print(self._format_dict(payload), file=self.output_file,
-                      flush=True)
+                print(self._format_dict(payload), file=self.output_file)
                 message.ack()
             except self.queue.Empty:
                 pass
