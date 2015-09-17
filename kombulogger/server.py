@@ -12,7 +12,7 @@ from kombulogger import default_broker_url, default_queue_name
 
 class KombuLogServer(object):
 
-    log_format = '{host}\t{level}\t{message}'
+    log_format = u'{host}\t{level}\t{message}'
 
     def __init__(self, url=None, queue=None):
         url = url or default_broker_url
