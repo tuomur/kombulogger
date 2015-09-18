@@ -3,6 +3,7 @@
 import logging
 import socket
 import datetime
+import time
 
 import kombu
 
@@ -24,6 +25,7 @@ class KombuHandler(logging.Handler):
         self._connected_time = datetime.datetime.utcnow()
         self.connection = None
         self.queue = None
+        self.retries = 0
 
         self._connect()
 
@@ -45,8 +47,22 @@ class KombuHandler(logging.Handler):
 
     def emit(self, record):
         self._connect()
-        content = self._record_to_dict(record)
-        self.queue.put(content)
+        try:
+            content = self._record_to_dict(record)
+            self.queue.put(content)
+        except:
+            try:
+                self.close()
+            except:
+                pass
+            self.connection = None
+
+            if self.retries < 3:
+                time.sleep(0.3)  # throttle just a bit
+                self.emit(record)
+                self.retries += 1
+            else:
+                self.retries = 0
 
     def close(self):
         self.queue.close()
