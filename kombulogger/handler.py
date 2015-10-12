@@ -27,12 +27,11 @@ class KombuHandler(logging.Handler):
         self.queue = None
         self.retries = 0
 
-        self._connect()
-
     def _connect(self):
         now = datetime.datetime.utcnow()
         expired = now - self._connected_time > self.refresh_connection_interval
         if self.connection is None or expired:
+            self.close()
             self.connection = kombu.Connection(self.url)
             self.queue = self.connection.SimpleQueue(self.queue_name,
                                                      no_ack=True)
@@ -51,11 +50,7 @@ class KombuHandler(logging.Handler):
             content = self._record_to_dict(record)
             self.queue.put(content)
         except:
-            try:
-                self.close()
-            except:
-                pass
-            self.connection = None
+            self.close()
 
             if self.retries < 3:
                 time.sleep(0.3)  # throttle just a bit
@@ -65,5 +60,9 @@ class KombuHandler(logging.Handler):
                 self.retries = 0
 
     def close(self):
-        self.queue.close()
-        self.connection.close()
+        if self.queue:
+            self.queue.close()
+            self.queue = None
+        if self.connection:
+            self.connection.close()
+            self.connection = None
