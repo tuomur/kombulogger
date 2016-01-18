@@ -3,6 +3,7 @@
 from __future__ import print_function
 
 import os
+import sys
 import codecs
 
 import kombu
@@ -48,11 +49,14 @@ class KombuLogServer(object):
                 return u'kombulogger: Cannot format payload'
 
     def run(self):
+        kwargs = dict(file=self.output_file)
+        if sys.version_info >= (3, 3):
+            kwargs['flush'] = True
         while True:
             try:
                 message = self.queue.get(block=True, timeout=1)
                 payload = message.payload
-                print(self._format_dict(payload), file=self.output_file)
+                print(self._format_dict(payload), **kwargs)
                 message.ack()
             except self.queue.Empty:
                 pass
