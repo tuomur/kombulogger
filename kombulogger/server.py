@@ -39,7 +39,13 @@ class KombuLogServer(object):
         return False
 
     def _format_dict(self, log_dict):
-        return self.log_format.format(**log_dict)
+        try:
+            return self.log_format.format(**log_dict)
+        except UnicodeEncodeError:
+            try:
+                return u'kombulogger: Cannot format payload: {0!r}'.format(log_dict)
+            except UnicodeEncodeError:
+                return u'kombulogger: Cannot format payload'
 
     def run(self):
         while True:
