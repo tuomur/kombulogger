@@ -3,12 +3,25 @@
 from __future__ import print_function
 
 import os
-import sys
-import codecs
+import gzip
+import logging
+from logging.handlers import TimedRotatingFileHandler
+import shutil
 
 import kombu
 
 from kombulogger import default_broker_url, default_queue_name
+
+
+def namer(name):
+    return name + ".gz"
+
+
+def rotator(source, dest):
+    with open(source, 'rb') as sourcef:
+        with gzip.open(dest, 'wb') as destf:
+            shutil.copyfileobj(sourcef, destf)
+    os.remove(source)
 
 
 class KombuLogServer(object):
@@ -27,8 +40,14 @@ class KombuLogServer(object):
         if not path.endswith('.log'):
             path += '.log'
 
-        self.output_file = codecs.open(path, mode='ab',
-                                       encoding='UTF-8')
+        handler = TimedRotatingFileHandler(path, when='W0', backupCount=8)
+        handler.rotator = rotator
+        handler.namer = namer
+        handler.setFormatter(logging.Formatter())
+
+        self.output = logging.getLogger()
+        self.output.setLevel(logging.INFO)
+        self.output.addHandler(handler)
 
     def __enter__(self):
         return self
@@ -36,7 +55,6 @@ class KombuLogServer(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.queue.close()
         self.connection.close()
-        self.output_file.close()
         return False
 
     def _format_dict(self, log_dict):
@@ -49,14 +67,11 @@ class KombuLogServer(object):
                 return u'kombulogger: Cannot format payload'
 
     def run(self):
-        kwargs = dict(file=self.output_file)
-        if sys.version_info >= (3, 3):
-            kwargs['flush'] = True
         while True:
             try:
                 message = self.queue.get(block=True, timeout=1)
                 payload = message.payload
-                print(self._format_dict(payload), **kwargs)
+                self.output.info(self._format_dict(payload))
                 message.ack()
             except self.queue.Empty:
                 pass
